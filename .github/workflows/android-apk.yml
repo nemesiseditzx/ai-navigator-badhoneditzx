@@ -1,0 +1,104 @@
+name: Android debug APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/android-apk.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate React Native 0.81.5 Android project
+        run: npx --yes @react-native-community/cli@20.0.0 init AINavigator --version 0.81.5 --directory .native-build --skip-install
+
+      - name: Overlay application source and native dependencies
+        working-directory: .native-build
+        run: |
+          cp ../apps/mobile/App.tsx App.tsx
+          cp ../apps/mobile/app.json app.json
+          cp ../apps/mobile/tsconfig.json tsconfig.json
+          rm -rf src
+          cp -R ../apps/mobile/src src
+          node <<'NODE'
+          const fs = require('fs');
+          const target = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const source = JSON.parse(fs.readFileSync('../apps/mobile/package.json', 'utf8'));
+          for (const [name, version] of Object.entries(source.dependencies || {})) {
+            if (name !== 'react' && name !== 'react-native') target.dependencies[name] = version;
+          }
+          for (const [name, version] of Object.entries(source.devDependencies || {})) {
+            if (name in target.devDependencies) target.devDependencies[name] = version;
+          }
+          target.overrides = {...(target.overrides || {}), ...(source.overrides || {})};
+          fs.writeFileSync('package.json', JSON.stringify(target, null, 2) + '\n');
+          NODE
+          mkdir -p android/app/src/debug
+          cat > android/app/src/debug/AndroidManifest.xml <<'XML'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:usesCleartextTraffic="true" />
+          </manifest>
+          XML
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('android/app/src/main/AndroidManifest.xml')
+          xml = path.read_text()
+          permissions = '''
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <queries>
+                  <intent><action android:name="android.speech.RecognitionService" /></intent>
+              </queries>
+          '''
+          if 'android.permission.ACCESS_FINE_LOCATION' not in xml:
+              xml = xml.replace('<application', permissions + '\n    <application', 1)
+          path.write_text(xml)
+          PY
+
+      - name: Install JavaScript dependencies
+        working-directory: .native-build
+        run: npm install --no-audit --no-fund
+
+      - name: Build Android debug APK
+        working-directory: .native-build/android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-navigator-debug-apk
+          path: .native-build/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
