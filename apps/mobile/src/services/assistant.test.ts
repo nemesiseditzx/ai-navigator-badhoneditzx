@@ -13,6 +13,12 @@ test('recognizes mute commands', () => {
   assert.equal(parseLocalCommand('চুপ কর'), 'mute');
 });
 
+test('recognizes unmute commands in English and Bangla', () => {
+  assert.equal(parseLocalCommand('unmute'), 'unmute');
+  assert.equal(parseLocalCommand('voice on'), 'unmute');
+  assert.equal(parseLocalCommand('আবার চালু কর'), 'unmute');
+});
+
 test('keeps unknown requests explicit instead of pretending to understand', () => {
   assert.equal(parseLocalCommand('find me a coffee shop'), 'unknown');
 });
