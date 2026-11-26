@@ -1,0 +1,22 @@
+# Self-hosted services. Supply your own regional OSM-derived datasets before starting.
+services:
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: ai-nav-valhalla
+    ports: ["8002:8002"]
+    volumes: ["./data/valhalla:/custom_files"]
+    environment: ["tile_urls="]
+    restart: unless-stopped
+  photon:
+    image: komoot/photon:latest
+    container_name: ai-nav-photon
+    ports: ["2322:2322"]
+    volumes: ["./data/photon:/photon/photon_data"]
+    restart: unless-stopped
+  tileserver:
+    image: maptiler/tileserver-gl:latest
+    container_name: ai-nav-tileserver
+    ports: ["8080:8080"]
+    volumes: ["./data/tiles:/data:ro"]
+    command: ["--file", "/data/region.mbtiles"]
+    restart: unless-stopped
