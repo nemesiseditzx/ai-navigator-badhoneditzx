@@ -6,7 +6,8 @@
     "start": "react-native start",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/services/*.test.ts"
   },
   "dependencies": {
     "@maplibre/maplibre-react-native": "^10.2.0",
@@ -23,6 +24,7 @@
     "typescript": "^5.9.0",
     "@react-native/typescript-config": "^0.81.5",
     "@react-native/babel-preset": "0.81.5",
-    "@react-native/metro-config": "0.81.5"
+    "@react-native/metro-config": "0.81.5",
+    "tsx": "^4.20.6"
   }
 }
