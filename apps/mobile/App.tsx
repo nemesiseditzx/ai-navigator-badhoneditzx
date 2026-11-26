@@ -186,7 +186,7 @@ export default function App() {
       setStatus('Voice input error: ' + message);
     });
     return () => { destroySpeechRecognition(); stopSpeech(); };
-  }, [route, personality]);
+  }, [route, personality, conversation, destination]);
 
   const center: Coordinate = origin ?? [-75.1652, 39.9526];
   const personalityNames: Personality[] = ['friendly', 'strict', 'funny', 'angry', 'professional'];
