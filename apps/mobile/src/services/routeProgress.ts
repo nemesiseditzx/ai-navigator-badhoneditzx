@@ -68,7 +68,10 @@ export function evaluateRouteProgress(
     const bx = (b[0] - location[0]) * scaleX, by = (b[1] - location[1]) * scaleY;
     const dx = bx - ax, dy = by - ay;
     const denominator = dx * dx + dy * dy;
-    const t = denominator === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / denominator));
+    const lowerT = segmentLength === 0 ? 0 : Math.max(0, (minAlong - cumulative[i]) / segmentLength);
+    const upperT = segmentLength === 0 ? 1 : Math.min(1, (maxAlong - cumulative[i]) / segmentLength);
+    const projectedT = denominator === 0 ? 0 : -(ax * dx + ay * dy) / denominator;
+    const t = Math.max(lowerT, Math.min(upperT, projectedT));
     const distance = Math.hypot(ax + t * dx, ay + t * dy);
     const along = cumulative[i] + segmentLength * t;
 
