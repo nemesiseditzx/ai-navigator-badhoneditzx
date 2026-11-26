@@ -22,6 +22,7 @@ export default function App() {
   const [status, setStatus] = useState('Ready when you are');
   const [assistantInput, setAssistantInput] = useState('');
   const [listening, setListening] = useState(false);
+  const [voiceMuted, setVoiceMuted] = useState(false);
   const [speechLocale, setSpeechLocale] = useState<'en-US'|'bn-BD'>('en-US');
   const [conversation, setConversation] = useState<AssistantChatMessage[]>([]);
   const [activeInstruction, setActiveInstruction] = useState('Follow the highlighted route.');
@@ -73,11 +74,15 @@ export default function App() {
       nextManeuverIndex.current = 1;
       setActiveInstruction(nextRoute.maneuvers[0]?.instruction ?? 'Follow the highlighted route.');
       setStatus(`${(nextRoute.distanceMeters / 1000).toFixed(1)} km · ${Math.round(nextRoute.durationSeconds / 60)} min`);
-      speakNavigation(nextRoute.instructions[0] ?? 'Route ready. Follow the highlighted route.', personality);
+      announceNavigation(nextRoute.instructions[0] ?? 'Route ready. Follow the highlighted route.');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Routing unavailable');
       Alert.alert('Route unavailable', 'Check that your self-hosted Valhalla service is running and has map data.');
     } finally {setBusy(false);}
+  }
+
+  function announceNavigation(message: string) {
+    if (!voiceMuted) speakNavigation(message, personality);
   }
 
   useEffect(() => {
@@ -98,7 +103,7 @@ export default function App() {
           if (remainingMeters <= 250 && remainingMeters >= -25) {
             setActiveInstruction(upcoming.instruction);
             setStatus(upcoming.instruction);
-            speakNavigation(upcoming.instruction, personality);
+            announceNavigation(upcoming.instruction);
             nextManeuverIndex.current += 1;
           }
         }
@@ -107,7 +112,7 @@ export default function App() {
         if (wrongWaySamples.current >= 2) {
           const warning = 'Warning. Possible wrong-way movement. Follow road signs and do not make a sudden maneuver.';
           setStatus('⚠ ' + warning);
-          speakNavigation(warning, personality);
+          announceNavigation(warning);
           wrongWaySamples.current = 0;
         }
         const now = Date.now();
@@ -115,9 +120,9 @@ export default function App() {
           rerouteInFlight.current = true; lastRerouteAt.current = now; offRouteSamples.current = 0;
           const offRouteMessage = navigationReaction('off_route', personality);
           setStatus(offRouteMessage);
-          speakNavigation(offRouteMessage, personality);
+          announceNavigation(offRouteMessage);
           calculateRoute(current, destination.coordinate)
-            .then(nextRoute => {setRoute(nextRoute); const message = navigationReaction('rerouted', personality); setStatus(message); speakNavigation(nextRoute.instructions[0] ? message + ' ' + nextRoute.instructions[0] : message, personality);})
+            .then(nextRoute => {setRoute(nextRoute); const message = navigationReaction('rerouted', personality); setStatus(message); announceNavigation(nextRoute.instructions[0] ? message + ' ' + nextRoute.instructions[0] : message);})
             .catch(() => setStatus('Off route. Stay safe; a new route could not be calculated.'))
             .finally(() => {rerouteInFlight.current = false;});
         }
@@ -126,24 +131,29 @@ export default function App() {
       {enableHighAccuracy: true, distanceFilter: 8, interval: 2500, fastestInterval: 1000},
     );
     return () => Geolocation.clearWatch(watchId);
-  }, [route, destination, personality]);
+  }, [route, destination, personality, voiceMuted]);
 
   async function handleAssistantMessage(rawMessage: string) {
     const command = parseLocalCommand(rawMessage);
     if (command === 'repeat') {
       const instruction = activeInstruction || route?.instructions[0] || 'There is no active route to repeat yet.';
       setStatus(instruction);
-      speakNavigation(instruction, personality);
+      announceNavigation(instruction);
     } else if (command === 'mute') {
+      setVoiceMuted(true);
       stopSpeech();
-      setStatus('Voice guidance muted. Visual navigation remains active.');
+      setStatus('Voice guidance muted. Say unmute to turn it back on.');
+    } else if (command === 'unmute') {
+      setVoiceMuted(false);
+      setStatus('Voice guidance is back on.');
+      speakNavigation('Voice guidance is back on.', personality);
     } else {
       setStatus('Thinking with your local AI…');
       try {
         const response = await askLocalAssistant(rawMessage, personality, conversation, route, destination?.name);
         setConversation(previous => [...previous, {role: 'user', content: rawMessage}, {role: 'assistant', content: response}].slice(-12));
         setStatus(response);
-        speakNavigation(response, personality);
+        announceNavigation(response);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Local assistant is unavailable.';
         setStatus(message);
@@ -211,7 +221,7 @@ export default function App() {
       <View style={styles.searchCard}><Text style={styles.label}>WHERE TO?</Text><TextInput value={query} onChangeText={findPlaces} placeholder="Search a place or address" placeholderTextColor="#89938B" style={styles.input} returnKeyType="search"/>{busy && <ActivityIndicator color="#287BDE" style={{marginTop:8}}/>}{results.length > 0 && <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{results.map(item => <TouchableOpacity key={item.id} style={styles.resultRow} onPress={() => startRoute(item)}><Text style={styles.resultName}>{item.name}</Text><Text style={styles.resultLabel}>{item.label}</Text></TouchableOpacity>)}</ScrollView>}</View>
       {route && <View style={styles.routeCard}><Text style={styles.routeTitle}>{destination?.name}</Text><Text style={styles.routeMeta}>{(route.distanceMeters / 1000).toFixed(1)} km · {Math.round(route.durationSeconds / 60)} min estimated</Text><Text style={styles.instruction}>{activeInstruction}</Text></View>}
       <View style={styles.assistantCard}><View style={styles.orb}><Text style={styles.orbText}>AI</Text></View><View style={{flex:1}}><Text style={styles.assistantTitle}>Your driving companion</Text><Text style={styles.assistantStatus}>{status}</Text><Text style={styles.assistantHint}>{navigationReaction('rerouted', personality)}</Text></View></View>
-      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Talk to your local AI assistant" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={styles.languageButton} onPress={() => setSpeechLocale(current => current === 'en-US' ? 'bn-BD' : 'en-US')}><Text style={styles.languageText}>{speechLocale === 'en-US' ? 'EN' : 'বাংলা'}</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
+      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder={voiceMuted ? 'Voice muted · say unmute' : 'Talk to your local AI assistant'} placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={styles.languageButton} onPress={() => setSpeechLocale(current => current === 'en-US' ? 'bn-BD' : 'en-US')}><Text style={styles.languageText}>{speechLocale === 'en-US' ? 'EN' : 'বাংলা'}</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personalityRow}>{personalityNames.map(item => <TouchableOpacity key={item} onPress={() => setPersonality(item)} style={[styles.personality, personality === item && styles.personalityActive]}><Text style={[styles.personalityText, personality === item && styles.personalityTextActive]}>{item}</Text></TouchableOpacity>)}</ScrollView>
       <Text style={styles.footer}>Foreground GPS rerouting, maneuver prompts and system speech are enabled. Background tracking and offline AI/voice models remain future work.</Text>
     </SafeAreaView>
