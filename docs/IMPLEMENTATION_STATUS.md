@@ -7,7 +7,7 @@
 - Precision-6 route polyline decoder.
 - Geometric route-progress utility; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning.
 - Persistent Node test cases for route-progress and assistant-command edge cases (on-route, off-route, heading reversal, stationary movement, degenerate routes, repeat/mute parsing and safety wording). Run with `npm test` in `apps/mobile` after installing dependencies.
-- Deterministic assistant personality messages and repeat/mute command handling.
+- Deterministic assistant personality messages and repeat/mute/unmute command handling with persistent voice mute state.
 - Optional conversational assistant client targeting a user-hosted llama.cpp OpenAI-compatible endpoint; short history and route context are sent only to that configured endpoint, with no cloud fallback.
 - Native system TTS calls for route start, upcoming maneuvers (250 m geometric approach threshold), wrong-way alerts and reroutes; system speech recognition input for spoken commands.
 - Android/iOS permission merge snippets for location, microphone and speech recognition. System speech recognition may use external OS providers and is not guaranteed offline; local whisper.cpp/Piper are still not integrated.
