@@ -1,0 +1,2 @@
+import type {Coordinate} from '../types/navigation';
+export function decodePolyline6(encoded:string):Coordinate[]{const points:Coordinate[]=[];let i=0,lat=0,lon=0;const read=()=>{let result=0,shift=0,byte:number;do{if(i>=encoded.length)throw Error('Invalid encoded polyline');byte=encoded.charCodeAt(i++)-63;result|=(byte&31)<<shift;shift+=5;if(shift>30)throw Error('Invalid encoded polyline value');}while(byte>=32);return(result&1)?~(result>>1):(result>>1);};while(i<encoded.length){lat+=read();lon+=read();points.push([lon/1e6,lat/1e6]);}return points;}
