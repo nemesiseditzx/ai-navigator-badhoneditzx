@@ -185,7 +185,7 @@ export default function App() {
     }, message => {
       setListening(false);
       setStatus('Voice input error: ' + message);
-    });
+    }, () => setListening(false));
     return () => { destroySpeechRecognition(); stopSpeech(); };
   }, [route, personality, conversation, destination]);
 
