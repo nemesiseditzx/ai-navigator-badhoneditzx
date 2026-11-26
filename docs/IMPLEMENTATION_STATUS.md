@@ -31,7 +31,9 @@
 - JSON configuration files and D1 SQL migration were syntax-checked.
 - Route-progress, assistant-command and polyline utilities passed isolated TypeScript compilation; 11 targeted smoke assertions passed in this environment.
 - ZIP archive integrity was checked.
-- Added Netlify root configuration for the browser preview (`apps/web-preview`, `npm run build`, `dist`) and GitHub Actions workflows for browser build and mobile logic tests. Workflow execution and hosted Netlify deployment have not yet been verified.
+- Added Netlify root configuration for the browser preview (`apps/web-preview`, `npm run build`, `dist`) and GitHub Actions workflows for browser build and mobile logic tests.
+- Netlify deploy preview for PR #1 reports success at https://deploy-preview-1--navigationbybadhoneditzx.netlify.app. This is a PR preview, not a production-domain deployment.
+- GitHub Actions verified the browser TypeScript/Vite build and all 12 mobile logic tests successfully. Production dependency audits passed after upgrading MapLibre GL and overriding the deprecated voice package's vulnerable Expo config-plugin dependency.
 - npm dependency installation timed out; Vite build, full app TypeScript build and Android/iOS builds are not verified.
 - No live production map/routing service was provisioned.
 
