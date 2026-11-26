@@ -27,6 +27,7 @@ export default function App() {
   const [conversation, setConversation] = useState<AssistantChatMessage[]>([]);
   const [activeInstruction, setActiveInstruction] = useState('Follow the highlighted route.');
   const nextManeuverIndex = useRef(1);
+  const previousRouteProgress = useRef<number | undefined>(undefined);
   const assistantMessageHandler = useRef<(text: string) => void>(() => {});
   const [mapError, setMapError] = useState(false);
   const offRouteSamples = useRef(0);
@@ -82,11 +83,14 @@ export default function App() {
   }
 
   function announceNavigation(message: string) {
-    if (!voiceMuted) speakNavigation(message, personality);
+    if (!voiceMuted) speakNavigation(message, personality, speechLocale);
   }
 
   useEffect(() => {
     nextManeuverIndex.current = 1;
+    previousRouteProgress.current = undefined;
+    offRouteSamples.current = 0;
+    wrongWaySamples.current = 0;
     setActiveInstruction(route?.maneuvers[0]?.instruction ?? route?.instructions[0] ?? 'Follow the highlighted route.');
   }, [route]);
 
@@ -95,12 +99,18 @@ export default function App() {
     const watchId = Geolocation.watchPosition(
       position => {
         const current: Coordinate = [position.coords.longitude, position.coords.latitude];
-        const progress = evaluateRouteProgress(route.shape, current, position.coords.speed ?? undefined, position.coords.heading ?? undefined);
+        const progress = evaluateRouteProgress(route.shape, current, position.coords.speed ?? undefined, position.coords.heading ?? undefined, previousRouteProgress.current);
         if (!progress) return;
+        previousRouteProgress.current = progress.distanceAlongRouteMeters;
+        // Skip a maneuver only after passing it by a GPS-jitter tolerance.
+        while (nextManeuverIndex.current < route.maneuvers.length &&
+          route.maneuvers[nextManeuverIndex.current].distanceAlongRouteMeters - progress.distanceAlongRouteMeters < -60) {
+          nextManeuverIndex.current += 1;
+        }
         const upcoming = route.maneuvers[nextManeuverIndex.current];
         if (upcoming) {
           const remainingMeters = upcoming.distanceAlongRouteMeters - progress.distanceAlongRouteMeters;
-          if (remainingMeters <= 250 && remainingMeters >= -25) {
+          if (remainingMeters <= 250 && remainingMeters >= -60) {
             setActiveInstruction(upcoming.instruction);
             setStatus(upcoming.instruction);
             announceNavigation(upcoming.instruction);
@@ -131,7 +141,7 @@ export default function App() {
       {enableHighAccuracy: true, distanceFilter: 8, interval: 2500, fastestInterval: 1000},
     );
     return () => Geolocation.clearWatch(watchId);
-  }, [route, destination, personality, voiceMuted]);
+  }, [route, destination, personality, voiceMuted, speechLocale]);
 
   async function handleAssistantMessage(rawMessage: string) {
     const command = parseLocalCommand(rawMessage);
@@ -146,7 +156,7 @@ export default function App() {
     } else if (command === 'unmute') {
       setVoiceMuted(false);
       setStatus('Voice guidance is back on.');
-      speakNavigation('Voice guidance is back on.', personality);
+      speakNavigation('Voice guidance is back on.', personality, speechLocale);
     } else {
       setStatus('Thinking with your local AI…');
       try {
