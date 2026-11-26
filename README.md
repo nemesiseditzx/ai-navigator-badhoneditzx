@@ -41,3 +41,20 @@ Cloudflare Worker + D1 is optional and currently only exposes health/config plac
 
 ## Current status
 Read [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) before treating any feature as complete. Background turn-by-turn tracking, automatic rerouting, offline map packs, native offline speech and local LLM runtime still need implementation and testing.
+
+## Deploy the browser preview to Netlify
+
+The repository includes a root `netlify.toml` configured for the web app in `apps/web-preview`:
+- Base directory: `apps/web-preview`
+- Build command: `npm run build`
+- Publish directory: `dist` (relative to the base directory)
+- Node.js: 20
+
+Connect the GitHub repository in Netlify and select the `initial/ai-navigator-foundation` branch while this foundation is under review. If Netlify asks for build settings manually, use the values above. Do not set the publish directory to the repository root.
+
+For a working deployed map, add these Netlify environment variables before triggering a fresh deploy:
+- `VITE_MAP_STYLE_URL`: public HTTPS URL to your hosted MapLibre style JSON.
+- `VITE_PHOTON_URL`: public HTTPS base URL for your self-hosted Photon service.
+- `VITE_VALHALLA_URL`: public HTTPS base URL for your self-hosted Valhalla service.
+
+These are service URLs, not API secrets. The three services must be reachable from the public internet over HTTPS and configured with appropriate CORS. Do not use `localhost` in Netlify variables: it refers to each visitor's own device. The app now shows an explicit configuration message instead of silently trying localhost when a URL is missing. Netlify deploys the static browser preview only; it does not deploy the map, Photon or Valhalla services.
