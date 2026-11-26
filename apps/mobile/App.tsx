@@ -21,6 +21,8 @@ export default function App() {
   const [status, setStatus] = useState('Ready when you are');
   const [assistantInput, setAssistantInput] = useState('');
   const [listening, setListening] = useState(false);
+  const [activeInstruction, setActiveInstruction] = useState('Follow the highlighted route.');
+  const nextManeuverIndex = useRef(1);
   const [mapError, setMapError] = useState(false);
   const offRouteSamples = useRef(0);
   const wrongWaySamples = useRef(0);
@@ -64,6 +66,8 @@ export default function App() {
     try {
       const nextRoute = await calculateRoute(origin, place.coordinate);
       setRoute(nextRoute);
+      nextManeuverIndex.current = 1;
+      setActiveInstruction(nextRoute.maneuvers[0]?.instruction ?? 'Follow the highlighted route.');
       setStatus(`${(nextRoute.distanceMeters / 1000).toFixed(1)} km · ${Math.round(nextRoute.durationSeconds / 60)} min`);
       speakNavigation(nextRoute.instructions[0] ?? 'Route ready. Follow the highlighted route.', personality);
     } catch (error) {
@@ -73,12 +77,27 @@ export default function App() {
   }
 
   useEffect(() => {
+    nextManeuverIndex.current = 1;
+    setActiveInstruction(route?.maneuvers[0]?.instruction ?? route?.instructions[0] ?? 'Follow the highlighted route.');
+  }, [route]);
+
+  useEffect(() => {
     if (!route || !destination) return;
     const watchId = Geolocation.watchPosition(
       position => {
         const current: Coordinate = [position.coords.longitude, position.coords.latitude];
         const progress = evaluateRouteProgress(route.shape, current, position.coords.speed ?? undefined, position.coords.heading ?? undefined);
         if (!progress) return;
+        const upcoming = route.maneuvers[nextManeuverIndex.current];
+        if (upcoming) {
+          const remainingMeters = upcoming.distanceAlongRouteMeters - progress.distanceAlongRouteMeters;
+          if (remainingMeters <= 250 && remainingMeters >= -25) {
+            setActiveInstruction(upcoming.instruction);
+            setStatus(upcoming.instruction);
+            speakNavigation(upcoming.instruction, personality);
+            nextManeuverIndex.current += 1;
+          }
+        }
         offRouteSamples.current = progress.offRouteCandidate ? offRouteSamples.current + 1 : 0;
         wrongWaySamples.current = progress.wrongWayCandidate ? wrongWaySamples.current + 1 : 0;
         if (wrongWaySamples.current >= 2) {
@@ -108,7 +127,7 @@ export default function App() {
   function handleAssistantMessage(rawMessage: string) {
     const command = parseLocalCommand(rawMessage);
     if (command === 'repeat') {
-      const instruction = route?.instructions[0] ?? 'There is no active route to repeat yet.';
+      const instruction = activeInstruction || route?.instructions[0] || 'There is no active route to repeat yet.';
       setStatus(instruction);
       speakNavigation(instruction, personality);
     } else if (command === 'mute') {
@@ -177,11 +196,11 @@ export default function App() {
         <View style={styles.mapBadge}><View style={styles.onlineDot}/><Text style={styles.mapBadgeText}>OPEN MAP DATA</Text></View>
       </View>
       <View style={styles.searchCard}><Text style={styles.label}>WHERE TO?</Text><TextInput value={query} onChangeText={findPlaces} placeholder="Search a place or address" placeholderTextColor="#89938B" style={styles.input} returnKeyType="search"/>{busy && <ActivityIndicator color="#287BDE" style={{marginTop:8}}/>}{results.length > 0 && <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{results.map(item => <TouchableOpacity key={item.id} style={styles.resultRow} onPress={() => startRoute(item)}><Text style={styles.resultName}>{item.name}</Text><Text style={styles.resultLabel}>{item.label}</Text></TouchableOpacity>)}</ScrollView>}</View>
-      {route && <View style={styles.routeCard}><Text style={styles.routeTitle}>{destination?.name}</Text><Text style={styles.routeMeta}>{(route.distanceMeters / 1000).toFixed(1)} km · {Math.round(route.durationSeconds / 60)} min estimated</Text><Text style={styles.instruction}>{route.instructions[0] ?? 'Follow the highlighted route.'}</Text></View>}
+      {route && <View style={styles.routeCard}><Text style={styles.routeTitle}>{destination?.name}</Text><Text style={styles.routeMeta}>{(route.distanceMeters / 1000).toFixed(1)} km · {Math.round(route.durationSeconds / 60)} min estimated</Text><Text style={styles.instruction}>{activeInstruction}</Text></View>}
       <View style={styles.assistantCard}><View style={styles.orb}><Text style={styles.orbText}>AI</Text></View><View style={{flex:1}}><Text style={styles.assistantTitle}>Your driving companion</Text><Text style={styles.assistantStatus}>{status}</Text><Text style={styles.assistantHint}>{navigationReaction('rerouted', personality)}</Text></View></View>
       <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Say or type: repeat / mute" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personalityRow}>{personalityNames.map(item => <TouchableOpacity key={item} onPress={() => setPersonality(item)} style={[styles.personality, personality === item && styles.personalityActive]}><Text style={[styles.personalityText, personality === item && styles.personalityTextActive]}>{item}</Text></TouchableOpacity>)}</ScrollView>
-      <Text style={styles.footer}>Foreground route monitoring and system speech are enabled. Background tracking and offline AI/voice models remain future work.</Text>
+      <Text style={styles.footer}>Foreground GPS rerouting, maneuver prompts and system speech are enabled. Background tracking and offline AI/voice models remain future work.</Text>
     </SafeAreaView>
   );
 }
