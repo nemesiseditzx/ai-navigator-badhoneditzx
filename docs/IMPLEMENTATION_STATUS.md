@@ -26,7 +26,7 @@
 
 ## Validation status
 - JSON configuration files and D1 SQL migration were syntax-checked.
-- Route-progress and polyline utilities passed isolated TypeScript compilation and smoke tests.
+- Route-progress, assistant-command and polyline utilities passed isolated TypeScript compilation; 11 targeted smoke assertions passed in this environment.
 - ZIP archive integrity was checked.
 - npm dependency installation timed out; Vite build, full app TypeScript build and Android/iOS builds are not verified.
 - No live production map/routing service was provisioned.
