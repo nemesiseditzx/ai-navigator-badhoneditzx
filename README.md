@@ -58,3 +58,6 @@ For a working deployed map, add these Netlify environment variables before trigg
 - `VITE_VALHALLA_URL`: public HTTPS base URL for your self-hosted Valhalla service.
 
 These are service URLs, not API secrets. The three services must be reachable from the public internet over HTTPS and configured with appropriate CORS. Do not use `localhost` in Netlify variables: it refers to each visitor's own device. The app now shows an explicit configuration message instead of silently trying localhost when a URL is missing. Netlify deploys the static browser preview only; it does not deploy the map, Photon or Valhalla services.
+
+## Current Netlify preview
+The pull-request deploy preview is available at https://deploy-preview-1--navigationbybadhoneditzx.netlify.app. It is a preview deployment, not the production domain. The browser build is verified; a live map still requires the three self-hosted HTTPS endpoints described above.
