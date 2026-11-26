@@ -28,17 +28,20 @@ export async function stopSpeech(): Promise<void> {
 }
 
 export async function startSpeechRecognition(locale = 'en-US'): Promise<void> {
+  const available = await Voice.isAvailable();
+  if (!available) throw new Error('Speech recognition is not available on this device.');
   await Voice.start(locale);
 }
 export async function stopSpeechRecognition(): Promise<void> {
   try { await Voice.stop(); } catch { /* recognizer may already be stopped */ }
 }
-export function setSpeechRecognitionHandlers(onText: (text: string) => void, onError: (message: string) => void): void {
+export function setSpeechRecognitionHandlers(onText: (text: string) => void, onError: (message: string) => void, onEnd: () => void): void {
   Voice.onSpeechResults = event => {
     const text = event.value?.[0];
     if (text) onText(text);
   };
   Voice.onSpeechError = event => onError(event.error?.message ?? 'Speech recognition failed');
+  Voice.onSpeechEnd = onEnd;
 }
 export async function destroySpeechRecognition(): Promise<void> {
   try { await Voice.destroy(); Voice.removeAllListeners(); } catch { /* safe during unmount */ }
