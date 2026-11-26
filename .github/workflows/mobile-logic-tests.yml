@@ -68,7 +68,7 @@ jobs:
             if (name in target.devDependencies) target.devDependencies[name] = version;
           }
           target.overrides = {...(target.overrides || {}), ...(source.overrides || {})};
-          fs.writeFileSync('package.json', JSON.stringify(target, null, 2) + '\\n');
+          fs.writeFileSync('package.json', JSON.stringify(target, null, 2) + '\n');
           NODE
           mkdir -p android/app/src/debug
           cat > android/app/src/debug/AndroidManifest.xml <<'XML'
@@ -87,7 +87,7 @@ jobs:
               <queries><intent><action android:name="android.speech.RecognitionService" /></intent></queries>
           '''
           if 'android.permission.ACCESS_FINE_LOCATION' not in xml:
-              xml = xml.replace('<application', permissions + '\\n    <application', 1)
+              xml = xml.replace('<application', permissions + '\n    <application', 1)
           path.write_text(xml)
           PY
       - name: Install JavaScript dependencies
