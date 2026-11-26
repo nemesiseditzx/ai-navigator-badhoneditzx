@@ -27,12 +27,12 @@ Merge the Android permissions/query snippet from `native-config/AndroidManifest.
 
 TTS uses the device's installed system speech engine; offline availability and Bengali voice availability depend on the device's installed voices. Speech recognition uses the operating system recognition provider and may send audio to an external provider depending on device settings; it is not guaranteed to be on-device/offline. The language selector requests `en-US` or `bn-BD` for recognition and TTS. Do not describe it as private/offline speech recognition.
 
-## Native setup still required
-This source does not include generated `android/` and `ios/` native project folders. Generate/merge them with the React Native Community CLI for React Native 0.81.5, then install native dependencies and pods. iOS builds require macOS and Xcode.
+## Native build status and Android APK
+The repository keeps the React Native application source under `apps/mobile`; generated native projects are not committed. The GitHub Actions workflow `.github/workflows/android-apk.yml` generates a clean React Native 0.81.5 Android project, overlays this app source, installs native dependencies, and runs `assembleDebug`. Run it manually from the Actions tab with **Android debug APK** → **Run workflow**, or let it run on a pull request/push that changes `apps/mobile/**` or this workflow. A successful run uploads `ai-navigator-debug-apk` as a 14-day workflow artifact. An APK is not available until that workflow completes successfully.
 
-Add Android `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` permissions to `AndroidManifest.xml`. Add `NSLocationWhenInUseUsageDescription` to iOS `Info.plist`. Configure cleartext HTTP only for local development; production self-hosted endpoints should use HTTPS.
+The workflow adds location and microphone permissions. Cleartext HTTP is enabled only in the Android debug manifest so the emulator can reach local development services; do not use that debug build as a production release. Production endpoints must use HTTPS. iOS still requires native project generation, permission merging, CocoaPods and a macOS/Xcode build.
 
-Run `npm install`, then `npm run typecheck` and `npm test` for TypeScript checking and route-progress regression tests. Use `npm run android` or `npm run ios` after native project generation. Set service URLs in `src/config.ts`. Android emulator uses `10.0.2.2`; physical devices need the host computer's LAN IP.
+Run `npm install`, then `npm run typecheck` and `npm test` in this directory for source checks. Android emulator endpoints use `10.0.2.2`; physical devices need the host computer's LAN IP. Set self-hosted service URLs in `src/config.ts`.
 
 ## Safety limitations
 The route-progress estimator is geometric, not road-network map matching. A forward progress corridor and crossing tests reduce some position jumps, but GPS drift can still create false positives or missed maneuvers. Background navigation, lane guidance, traffic and offline routing are not implemented. Do not use this scaffold as a sole navigation aid on real roads.
