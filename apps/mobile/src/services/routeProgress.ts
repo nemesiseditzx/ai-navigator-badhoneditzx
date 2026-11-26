@@ -50,6 +50,7 @@ export function evaluateRouteProgress(
   const minAlong = previousDistanceAlongRouteMeters === undefined ? 0 : Math.max(0, previousDistanceAlongRouteMeters - 35);
   const maxAlong = previousDistanceAlongRouteMeters === undefined ? cumulative[cumulative.length - 1] : previousDistanceAlongRouteMeters + forwardWindow;
 
+  let bestScore = Infinity;
   let bestDistance = Infinity;
   let bestIndex = -1;
   let bestAlong = 0;
@@ -77,8 +78,9 @@ export function evaluateRouteProgress(
       ? 0
       : Math.min(18, Math.abs(along - previousDistanceAlongRouteMeters) * 0.025);
     const score = distance + continuityPenalty;
-    if (score < bestDistance) {
-      bestDistance = score;
+    if (score < bestScore) {
+      bestScore = score;
+      bestDistance = distance;
       bestIndex = i;
       bestAlong = along;
       bestBearing = bearing(a, b);
