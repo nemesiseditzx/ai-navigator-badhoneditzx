@@ -7,7 +7,9 @@
 - Precision-6 route polyline decoder.
 - Geometric route-progress utility; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning.
 - Persistent Node test cases for route-progress and assistant-command edge cases (on-route, off-route, heading reversal, stationary movement, degenerate routes, repeat/mute parsing and safety wording). Run with `npm test` in `apps/mobile` after installing dependencies.
-- Deterministic assistant personality messages, simple local command parsing, and a small in-app text command field (repeat/mute only; not a general conversational model).
+- Deterministic assistant personality messages and repeat/mute command handling.
+- Native system TTS calls for route start, upcoming maneuvers, wrong-way alerts and reroutes; system speech recognition input for short English commands.
+- Android/iOS permission merge snippets for location, microphone and speech recognition. System speech recognition may use external OS providers and is not guaranteed offline; local whisper.cpp/Piper are still not integrated.
 - Browser preview with MapLibre GL, browser geolocation, Photon search, Valhalla route display, personality selection and browser speech preview.
 - Cloudflare Worker health/config endpoints and initial D1 schema.
 - Docker Compose template for self-hosted routing, geocoding and vector tiles.
@@ -19,7 +21,7 @@
 - Full turn-by-turn maneuver state, lane guidance, traffic and speed-limit data.
 - Offline map downloads, region package manager, offline routing graph activation and offline POI search.
 - Native llama.cpp runtime/model selection and safe tool calling.
-- Native whisper.cpp speech-to-text and Piper text-to-speech.
+- Native whisper.cpp speech-to-text and Piper text-to-speech (the current system speech bridge is not the offline model stack).
 - Production regional OSM data pipeline, tile style and validated service deployment.
 - Authentication, profile sync, production community reports and moderation.
 - Automated app integration tests, performance tests and supervised real-road validation.
