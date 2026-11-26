@@ -6,6 +6,7 @@
 - Photon place-search client and Valhalla route-request client.
 - Precision-6 route polyline decoder.
 - Geometric route-progress utility; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning.
+- Persistent Node test cases for route-progress edge cases (on-route, off-route, heading reversal, stationary movement and degenerate routes). Run with `npm test` in `apps/mobile` after installing dependencies.
 - Deterministic assistant personality messages and simple local command parsing.
 - Browser preview with MapLibre GL, browser geolocation, Photon search, Valhalla route display, personality selection and browser speech preview.
 - Cloudflare Worker health/config endpoints and initial D1 schema.
