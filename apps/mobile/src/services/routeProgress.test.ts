@@ -36,3 +36,17 @@ test('flags a strong heading reversal only while moving', () => {
   assert.equal(moving.wrongWayCandidate, true);
   assert.equal(stationary.wrongWayCandidate, false);
 });
+
+test('keeps route progress near the previous segment at a loop crossing', () => {
+  const loop: Coordinate[] = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001], [0, 0]];
+  const result = evaluateRouteProgress(loop, [0, 0], 0, 0, 0);
+  assert.ok(result);
+  assert.ok(result.distanceAlongRouteMeters < 50);
+});
+
+test('does not jump far ahead of the previous progress after a noisy GPS fix', () => {
+  const route: Coordinate[] = [[0, 0], [0.001, 0], [0.002, 0], [0.003, 0], [0.004, 0]];
+  const result = evaluateRouteProgress(route, [0.0039, 0], 5, 90, 0);
+  assert.ok(result);
+  assert.ok(result.distanceAlongRouteMeters < 180);
+});
