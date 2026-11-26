@@ -5,11 +5,11 @@
 - Foreground location request and active-route GPS watch.
 - Photon place-search client and Valhalla route-request client.
 - Precision-6 route polyline decoder.
-- Geometric route-progress utility; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning.
+- Geometric route-progress utility with previous-progress corridor constraints to reduce jumps at loop/crossing intersections; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning. This remains geometric matching, not road-network map matching.
 - Persistent Node test cases for route-progress and assistant-command edge cases (on-route, off-route, heading reversal, stationary movement, degenerate routes, repeat/mute parsing and safety wording). Run with `npm test` in `apps/mobile` after installing dependencies.
 - Deterministic assistant personality messages and repeat/mute/unmute command handling with persistent voice mute state.
 - Optional conversational assistant client targeting a user-hosted llama.cpp OpenAI-compatible endpoint; short history and route context are sent only to that configured endpoint, with no cloud fallback.
-- Native system TTS calls for route start, upcoming maneuvers (250 m geometric approach threshold), wrong-way alerts and reroutes; system speech recognition input for spoken commands.
+- Native system TTS calls for route start, upcoming maneuvers (250 m geometric approach threshold with a 60 m missed-turn tolerance), wrong-way alerts and reroutes; spoken output follows the selected English/Bangla locale when a compatible system voice is installed. System speech recognition input supports the selected locale where the OS provider supports it.
 - Android/iOS permission merge snippets for location, microphone and speech recognition. System speech recognition may use external OS providers and is not guaranteed offline; local whisper.cpp/Piper are still not integrated.
 - Browser preview with MapLibre GL, browser geolocation, Photon search, Valhalla route display, personality selection and browser speech preview.
 - Cloudflare Worker health/config endpoints and initial D1 schema.
@@ -31,6 +31,7 @@
 - JSON configuration files and D1 SQL migration were syntax-checked.
 - Route-progress, assistant-command and polyline utilities passed isolated TypeScript compilation; 11 targeted smoke assertions passed in this environment.
 - ZIP archive integrity was checked.
+- Added Netlify root configuration for the browser preview (`apps/web-preview`, `npm run build`, `dist`) and GitHub Actions workflows for browser build and mobile logic tests. Workflow execution and hosted Netlify deployment have not yet been verified.
 - npm dependency installation timed out; Vite build, full app TypeScript build and Android/iOS builds are not verified.
 - No live production map/routing service was provisioned.
 
