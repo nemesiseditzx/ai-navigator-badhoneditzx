@@ -6,6 +6,7 @@ React Native application targeting Android and iOS. MapLibre renders maps; Photo
 - MapLibre Native map view and foreground current-location flow.
 - Photon place search and Valhalla route request/rendering.
 - Assistant personality selection with deterministic messages.
+- A basic text command field for `repeat` and `mute` commands in English/Bangla; unsupported requests are explicitly reported rather than passed off as conversational AI.
 - Foreground GPS watch while a route is active.
 - Three consecutive geometric off-route candidates trigger a Valhalla reroute request with a 30-second cooldown; repeated wrong-way candidates display a warning.
 
