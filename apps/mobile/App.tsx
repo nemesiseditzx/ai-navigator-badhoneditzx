@@ -7,6 +7,7 @@ import {searchPlaces} from './src/services/places';
 import {calculateRoute} from './src/services/routing';
 import {navigationReaction, parseLocalCommand} from './src/services/assistant';
 import {evaluateRouteProgress} from './src/services/routeProgress';
+import {speakNavigation, stopSpeech, startSpeechRecognition, stopSpeechRecognition, setSpeechRecognitionHandlers, destroySpeechRecognition} from './src/services/speech';
 import type {Coordinate, Place, Personality, RouteSummary} from './src/types/navigation';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const [personality, setPersonality] = useState<Personality>('friendly');
   const [status, setStatus] = useState('Ready when you are');
   const [assistantInput, setAssistantInput] = useState('');
+  const [listening, setListening] = useState(false);
   const [mapError, setMapError] = useState(false);
   const offRouteSamples = useRef(0);
   const wrongWaySamples = useRef(0);
@@ -63,6 +65,7 @@ export default function App() {
       const nextRoute = await calculateRoute(origin, place.coordinate);
       setRoute(nextRoute);
       setStatus(`${(nextRoute.distanceMeters / 1000).toFixed(1)} km · ${Math.round(nextRoute.durationSeconds / 60)} min`);
+      speakNavigation(nextRoute.instructions[0] ?? 'Route ready. Follow the highlighted route.', personality);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Routing unavailable');
       Alert.alert('Route unavailable', 'Check that your self-hosted Valhalla service is running and has map data.');
@@ -79,15 +82,19 @@ export default function App() {
         offRouteSamples.current = progress.offRouteCandidate ? offRouteSamples.current + 1 : 0;
         wrongWaySamples.current = progress.wrongWayCandidate ? wrongWaySamples.current + 1 : 0;
         if (wrongWaySamples.current >= 2) {
-          setStatus('⚠ Possible wrong-way movement. Follow road signs and do not make a sudden maneuver.');
+          const warning = 'Warning. Possible wrong-way movement. Follow road signs and do not make a sudden maneuver.';
+          setStatus('⚠ ' + warning);
+          speakNavigation(warning, personality);
           wrongWaySamples.current = 0;
         }
         const now = Date.now();
         if (offRouteSamples.current >= 3 && !rerouteInFlight.current && now - lastRerouteAt.current > 30000) {
           rerouteInFlight.current = true; lastRerouteAt.current = now; offRouteSamples.current = 0;
-          setStatus(navigationReaction('off_route', personality));
+          const offRouteMessage = navigationReaction('off_route', personality);
+          setStatus(offRouteMessage);
+          speakNavigation(offRouteMessage, personality);
           calculateRoute(current, destination.coordinate)
-            .then(nextRoute => {setRoute(nextRoute); setStatus(navigationReaction('rerouted', personality));})
+            .then(nextRoute => {setRoute(nextRoute); const message = navigationReaction('rerouted', personality); setStatus(message); speakNavigation(nextRoute.instructions[0] ? message + ' ' + nextRoute.instructions[0] : message, personality);})
             .catch(() => setStatus('Off route. Stay safe; a new route could not be calculated.'))
             .finally(() => {rerouteInFlight.current = false;});
         }
@@ -98,15 +105,60 @@ export default function App() {
     return () => Geolocation.clearWatch(watchId);
   }, [route, destination, personality]);
 
+  function handleAssistantMessage(rawMessage: string) {
+    const command = parseLocalCommand(rawMessage);
+    if (command === 'repeat') {
+      const instruction = route?.instructions[0] ?? 'There is no active route to repeat yet.';
+      setStatus(instruction);
+      speakNavigation(instruction, personality);
+    } else if (command === 'mute') {
+      stopSpeech();
+      setStatus('Voice guidance muted. Visual navigation remains active.');
+    } else {
+      const response = 'I can repeat the current instruction or mute voice guidance. General conversation is not available in this build.';
+      setStatus(response);
+      speakNavigation(response, personality);
+    }
+  }
+
   function sendAssistantMessage() {
     const message = assistantInput.trim();
     if (!message) return;
-    const command = parseLocalCommand(message);
-    if (command === 'repeat') setStatus(route?.instructions[0] ?? 'There is no active route to repeat yet.');
-    else if (command === 'mute') setStatus('Voice output is not connected in this build. Navigation alerts remain visible on screen.');
-    else setStatus('I can handle repeat and mute commands locally. Full conversational AI and microphone input are not connected yet.');
+    handleAssistantMessage(message);
     setAssistantInput('');
   }
+
+  async function toggleListening() {
+    if (listening) {
+      await stopSpeechRecognition();
+      setListening(false);
+      return;
+    }
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) throw new Error('Microphone permission is required.');
+      }
+      await startSpeechRecognition('en-US');
+      setListening(true);
+      setStatus('Listening for a short navigation command…');
+    } catch (error) {
+      setListening(false);
+      setStatus(error instanceof Error ? error.message : 'Speech recognition is unavailable.');
+    }
+  }
+
+  useEffect(() => {
+    setSpeechRecognitionHandlers(text => {
+      setAssistantInput(text);
+      setListening(false);
+      handleAssistantMessage(text);
+    }, message => {
+      setListening(false);
+      setStatus('Voice input error: ' + message);
+    });
+    return () => { destroySpeechRecognition(); stopSpeech(); };
+  }, [route, personality]);
 
   const center: Coordinate = origin ?? [-75.1652, 39.9526];
   const personalityNames: Personality[] = ['friendly', 'strict', 'funny', 'angry', 'professional'];
@@ -127,13 +179,13 @@ export default function App() {
       <View style={styles.searchCard}><Text style={styles.label}>WHERE TO?</Text><TextInput value={query} onChangeText={findPlaces} placeholder="Search a place or address" placeholderTextColor="#89938B" style={styles.input} returnKeyType="search"/>{busy && <ActivityIndicator color="#287BDE" style={{marginTop:8}}/>}{results.length > 0 && <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{results.map(item => <TouchableOpacity key={item.id} style={styles.resultRow} onPress={() => startRoute(item)}><Text style={styles.resultName}>{item.name}</Text><Text style={styles.resultLabel}>{item.label}</Text></TouchableOpacity>)}</ScrollView>}</View>
       {route && <View style={styles.routeCard}><Text style={styles.routeTitle}>{destination?.name}</Text><Text style={styles.routeMeta}>{(route.distanceMeters / 1000).toFixed(1)} km · {Math.round(route.durationSeconds / 60)} min estimated</Text><Text style={styles.instruction}>{route.instructions[0] ?? 'Follow the highlighted route.'}</Text></View>}
       <View style={styles.assistantCard}><View style={styles.orb}><Text style={styles.orbText}>AI</Text></View><View style={{flex:1}}><Text style={styles.assistantTitle}>Your driving companion</Text><Text style={styles.assistantStatus}>{status}</Text><Text style={styles.assistantHint}>{navigationReaction('rerouted', personality)}</Text></View></View>
-      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Ask: repeat / mute" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity></View>
+      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Say or type: repeat / mute" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personalityRow}>{personalityNames.map(item => <TouchableOpacity key={item} onPress={() => setPersonality(item)} style={[styles.personality, personality === item && styles.personalityActive]}><Text style={[styles.personalityText, personality === item && styles.personalityTextActive]}>{item}</Text></TouchableOpacity>)}</ScrollView>
-      <Text style={styles.footer}>Foreground route monitoring is active. Background tracking, offline voice and local AI remain next milestones.</Text>
+      <Text style={styles.footer}>Foreground route monitoring and system speech are enabled. Background tracking and offline AI/voice models remain future work.</Text>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:{flex:1,backgroundColor:'#F7F9F7',paddingHorizontal:16},chatRow:{marginTop:8,flexDirection:'row',gap:8,alignItems:'center'},chatInput:{flex:1,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5',borderRadius:12,paddingHorizontal:12,paddingVertical:9,fontSize:13,color:'#26352B'},chatSend:{backgroundColor:'#245B39',paddingHorizontal:16,paddingVertical:11,borderRadius:12},chatSendText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},header:{paddingTop:8,paddingBottom:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},brand:{fontSize:25,fontWeight:'800',color:'#17251D'},kicker:{marginTop:4,fontSize:9,letterSpacing:1.1,color:'#47785A',fontWeight:'800'},locationButton:{width:42,height:42,borderRadius:21,backgroundColor:'#E4EFE6',alignItems:'center',justifyContent:'center'},locationButtonText:{fontSize:27,color:'#28603A'},mapWrap:{flex:1,minHeight:230,maxHeight:430,borderRadius:22,overflow:'hidden',backgroundColor:'#E6EEE7'},map:{flex:1},mapFallback:{flex:1,alignItems:'center',justifyContent:'center',padding:24},mapFallbackIcon:{fontSize:48,color:'#53745A'},mapFallbackTitle:{fontSize:16,fontWeight:'800',color:'#24392B',marginTop:8},mapFallbackBody:{fontSize:12,lineHeight:18,color:'#526B58',textAlign:'center',marginTop:6},mapBadge:{position:'absolute',top:12,left:12,flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#FFFFFF',paddingHorizontal:10,paddingVertical:7,borderRadius:20},onlineDot:{width:7,height:7,borderRadius:4,backgroundColor:'#26965B'},mapBadgeText:{fontSize:9,fontWeight:'800',letterSpacing:.8,color:'#315B3D'},userDot:{width:18,height:18,borderRadius:9,backgroundColor:'#287BDE',borderWidth:4,borderColor:'#FFFFFF'},destinationPin:{width:24,height:24,borderRadius:12,backgroundColor:'#287BDE',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#FFFFFF'},pinText:{color:'#FFFFFF',fontSize:10},searchCard:{marginTop:12,padding:15,borderRadius:18,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5'},label:{fontSize:9,letterSpacing:1.2,fontWeight:'800',color:'#748078'},input:{marginTop:5,paddingVertical:7,fontSize:15,color:'#26352B'},results:{maxHeight:150,marginTop:5},resultRow:{paddingVertical:10,borderTopWidth:1,borderTopColor:'#EEF1EE'},resultName:{fontWeight:'700',fontSize:13,color:'#26352B'},resultLabel:{fontSize:11,color:'#758078',marginTop:2},routeCard:{marginTop:10,padding:13,backgroundColor:'#E7F0FA',borderRadius:16},routeTitle:{fontSize:14,fontWeight:'800',color:'#173B63'},routeMeta:{fontSize:11,color:'#42698E',marginTop:3},instruction:{fontSize:12,color:'#173B63',marginTop:8,fontWeight:'700'},assistantCard:{marginTop:10,flexDirection:'row',alignItems:'center',padding:13,borderRadius:18,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5'},orb:{width:42,height:42,borderRadius:21,backgroundColor:'#E4EFE6',alignItems:'center',justifyContent:'center'},orbText:{fontWeight:'900',color:'#28603A'},assistantTitle:{fontSize:13,fontWeight:'800',color:'#26352B'},assistantStatus:{fontSize:10,color:'#758078',marginTop:3},assistantHint:{fontSize:10,color:'#526B58',marginTop:4},personalityRow:{paddingVertical:9,gap:7},personality:{paddingHorizontal:12,paddingVertical:7,borderRadius:18,backgroundColor:'#E9EDE9'},personalityActive:{backgroundColor:'#245B39'},personalityText:{fontSize:10,color:'#526158',textTransform:'capitalize',fontWeight:'700'},personalityTextActive:{color:'#FFFFFF'},footer:{textAlign:'center',fontSize:9,color:'#89928B',paddingBottom:5},
+  safe:{flex:1,backgroundColor:'#F7F9F7',paddingHorizontal:16},chatRow:{marginTop:8,flexDirection:'row',gap:8,alignItems:'center'},chatInput:{flex:1,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5',borderRadius:12,paddingHorizontal:12,paddingVertical:9,fontSize:13,color:'#26352B'},chatSend:{backgroundColor:'#245B39',paddingHorizontal:16,paddingVertical:11,borderRadius:12},chatSendText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},micButton:{backgroundColor:'#386B9A',paddingHorizontal:13,paddingVertical:11,borderRadius:12},micButtonActive:{backgroundColor:'#B34B3F'},header:{paddingTop:8,paddingBottom:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},brand:{fontSize:25,fontWeight:'800',color:'#17251D'},kicker:{marginTop:4,fontSize:9,letterSpacing:1.1,color:'#47785A',fontWeight:'800'},locationButton:{width:42,height:42,borderRadius:21,backgroundColor:'#E4EFE6',alignItems:'center',justifyContent:'center'},locationButtonText:{fontSize:27,color:'#28603A'},mapWrap:{flex:1,minHeight:230,maxHeight:430,borderRadius:22,overflow:'hidden',backgroundColor:'#E6EEE7'},map:{flex:1},mapFallback:{flex:1,alignItems:'center',justifyContent:'center',padding:24},mapFallbackIcon:{fontSize:48,color:'#53745A'},mapFallbackTitle:{fontSize:16,fontWeight:'800',color:'#24392B',marginTop:8},mapFallbackBody:{fontSize:12,lineHeight:18,color:'#526B58',textAlign:'center',marginTop:6},mapBadge:{position:'absolute',top:12,left:12,flexDirection:'row',alignItems:'center',gap:6,backgroundColor:'#FFFFFF',paddingHorizontal:10,paddingVertical:7,borderRadius:20},onlineDot:{width:7,height:7,borderRadius:4,backgroundColor:'#26965B'},mapBadgeText:{fontSize:9,fontWeight:'800',letterSpacing:.8,color:'#315B3D'},userDot:{width:18,height:18,borderRadius:9,backgroundColor:'#287BDE',borderWidth:4,borderColor:'#FFFFFF'},destinationPin:{width:24,height:24,borderRadius:12,backgroundColor:'#287BDE',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#FFFFFF'},pinText:{color:'#FFFFFF',fontSize:10},searchCard:{marginTop:12,padding:15,borderRadius:18,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5'},label:{fontSize:9,letterSpacing:1.2,fontWeight:'800',color:'#748078'},input:{marginTop:5,paddingVertical:7,fontSize:15,color:'#26352B'},results:{maxHeight:150,marginTop:5},resultRow:{paddingVertical:10,borderTopWidth:1,borderTopColor:'#EEF1EE'},resultName:{fontWeight:'700',fontSize:13,color:'#26352B'},resultLabel:{fontSize:11,color:'#758078',marginTop:2},routeCard:{marginTop:10,padding:13,backgroundColor:'#E7F0FA',borderRadius:16},routeTitle:{fontSize:14,fontWeight:'800',color:'#173B63'},routeMeta:{fontSize:11,color:'#42698E',marginTop:3},instruction:{fontSize:12,color:'#173B63',marginTop:8,fontWeight:'700'},assistantCard:{marginTop:10,flexDirection:'row',alignItems:'center',padding:13,borderRadius:18,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#E5EAE5'},orb:{width:42,height:42,borderRadius:21,backgroundColor:'#E4EFE6',alignItems:'center',justifyContent:'center'},orbText:{fontWeight:'900',color:'#28603A'},assistantTitle:{fontSize:13,fontWeight:'800',color:'#26352B'},assistantStatus:{fontSize:10,color:'#758078',marginTop:3},assistantHint:{fontSize:10,color:'#526B58',marginTop:4},personalityRow:{paddingVertical:9,gap:7},personality:{paddingHorizontal:12,paddingVertical:7,borderRadius:18,backgroundColor:'#E9EDE9'},personalityActive:{backgroundColor:'#245B39'},personalityText:{fontSize:10,color:'#526158',textTransform:'capitalize',fontWeight:'700'},personalityTextActive:{color:'#FFFFFF'},footer:{textAlign:'center',fontSize:9,color:'#89928B',paddingBottom:5},
 });
