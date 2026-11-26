@@ -11,9 +11,10 @@ export async function initializeSpeech(): Promise<void> {
   initialized = true;
 }
 
-export async function speakNavigation(text: string, personality: Personality): Promise<void> {
+export async function speakNavigation(text: string, personality: Personality, locale = 'en-US'): Promise<void> {
   try {
     await initializeSpeech();
+    await Tts.setDefaultLanguage(locale);
     await Tts.stop();
     await Tts.setDefaultRate(personality === 'angry' ? 0.56 : 0.48);
     await Tts.setDefaultPitch(personality === 'funny' ? 1.12 : 1.0);
