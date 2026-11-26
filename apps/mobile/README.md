@@ -13,7 +13,7 @@ React Native application targeting Android and iOS. MapLibre renders maps; Photo
 - Three consecutive geometric off-route candidates trigger a Valhalla reroute request with a 30-second cooldown; repeated wrong-way candidates display a warning.
 
 ## Local conversational AI
-The mobile assistant uses an optional OpenAI-compatible `llama.cpp` server on your own computer/network. Set `assistantURL` in `src/config.ts` to that server's `/v1/chat/completions` endpoint. Android emulator defaults to `10.0.2.2:8081`; a physical phone must use the computer's LAN IP. Example server command (after building llama.cpp and placing a compatible GGUF model locally):
+The mobile assistant handles `repeat`, `mute` and `unmute` locally, and uses an optional OpenAI-compatible `llama.cpp` server on your own computer/network. Set `assistantURL` in `src/config.ts` to that server's `/v1/chat/completions` endpoint. Android emulator defaults to `10.0.2.2:8081`; a physical phone must use the computer's LAN IP. Example server command (after building llama.cpp and placing a compatible GGUF model locally):
 
 ```bash
 llama-server -m /absolute/path/to/model.gguf --host 0.0.0.0 --port 8081 --ctx-size 4096
