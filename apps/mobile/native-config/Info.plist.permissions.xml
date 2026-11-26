@@ -1,0 +1,7 @@
+<!-- Merge these keys into ios/<AppName>/Info.plist. -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>AI Navigator uses your location to calculate and follow your route.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>AI Navigator uses the microphone for spoken navigation commands.</string>
+<key>NSSpeechRecognitionUsageDescription</key>
+<string>AI Navigator converts short spoken navigation commands into text.</string>
