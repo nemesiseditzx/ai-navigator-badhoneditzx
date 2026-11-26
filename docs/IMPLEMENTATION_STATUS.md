@@ -2,31 +2,32 @@
 
 ## Present in source
 - React Native MapLibre application shell with a light UI.
-- Current-location request flow for foreground location.
-- Photon place-search client.
-- Valhalla route-request client and precision-6 polyline decoder.
+- Foreground location request and active-route GPS watch.
+- Photon place-search client and Valhalla route-request client.
+- Precision-6 route polyline decoder.
+- Geometric route-progress utility; three consecutive off-route candidates request a Valhalla reroute with a cooldown, and repeated wrong-way candidates display a conservative warning.
 - Deterministic assistant personality messages and simple local command parsing.
-- Geometric route-progress utility for candidate off-route/wrong-way signals (not wired to live tracking).
-- Browser preview with MapLibre GL, browser geolocation, Photon search, Valhalla route display, personality selection, speech synthesis and optional browser speech recognition.
+- Browser preview with MapLibre GL, browser geolocation, Photon search, Valhalla route display, personality selection and browser speech preview.
 - Cloudflare Worker health/config endpoints and initial D1 schema.
 - Docker Compose template for self-hosted routing, geocoding and vector tiles.
 - Architecture, privacy, licensing and setup documentation.
 
 ## Not yet implemented
 - Generated native Android/iOS projects, permission configuration and successful device builds.
-- Continuous background GPS tracking, route map-matching, reliable off-route detection and automatic rerouting.
-- Wrong-way detection with confidence filtering and driver-safe prompts.
+- Background GPS tracking, road-network map matching, robust GPS-drift handling and production-grade off-route detection.
+- Full turn-by-turn maneuver state, lane guidance, traffic and speed-limit data.
 - Offline map downloads, region package manager, offline routing graph activation and offline POI search.
 - Native llama.cpp runtime/model selection and safe tool calling.
 - Native whisper.cpp speech-to-text and Piper text-to-speech.
 - Production regional OSM data pipeline, tile style and validated service deployment.
 - Authentication, profile sync, production community reports and moderation.
-- Automated unit/integration tests, performance tests and real-road validation.
+- Automated app integration tests, performance tests and supervised real-road validation.
 
 ## Validation status
-- JSON configuration files and the D1 SQL migration were syntax-checked in the preparation environment.
+- JSON configuration files and D1 SQL migration were syntax-checked.
+- Route-progress and polyline utilities passed isolated TypeScript compilation and smoke tests.
 - ZIP archive integrity was checked.
-- npm dependency installation timed out in the current environment; therefore Vite build, TypeScript project build and native Android/iOS builds have **not** been verified.
-- No live map/routing service was provisioned or called as a production endpoint.
+- npm dependency installation timed out; Vite build, full app TypeScript build and Android/iOS builds are not verified.
+- No live production map/routing service was provisioned.
 
-Do not describe this scaffold as production-ready or fully offline until the relevant features are implemented and tested on real devices.
+Do not describe this scaffold as production-ready or fully offline until the outstanding work is implemented and tested on real devices.
