@@ -26,6 +26,7 @@ export default function App() {
   const [conversation, setConversation] = useState<AssistantChatMessage[]>([]);
   const [activeInstruction, setActiveInstruction] = useState('Follow the highlighted route.');
   const nextManeuverIndex = useRef(1);
+  const assistantMessageHandler = useRef<(text: string) => void>(() => {});
   const [mapError, setMapError] = useState(false);
   const offRouteSamples = useRef(0);
   const wrongWaySamples = useRef(0);
@@ -150,6 +151,8 @@ export default function App() {
     }
   }
 
+  assistantMessageHandler.current = text => { void handleAssistantMessage(text); };
+
   function sendAssistantMessage() {
     const message = assistantInput.trim();
     if (!message) return;
@@ -181,13 +184,13 @@ export default function App() {
     setSpeechRecognitionHandlers(text => {
       setAssistantInput(text);
       setListening(false);
-      void handleAssistantMessage(text);
+      assistantMessageHandler.current(text);
     }, message => {
       setListening(false);
       setStatus('Voice input error: ' + message);
     }, () => setListening(false));
     return () => { destroySpeechRecognition(); stopSpeech(); };
-  }, [route, personality, conversation, destination]);
+  }, []);
 
   const center: Coordinate = origin ?? [-75.1652, 39.9526];
   const personalityNames: Personality[] = ['friendly', 'strict', 'funny', 'angry', 'professional'];
