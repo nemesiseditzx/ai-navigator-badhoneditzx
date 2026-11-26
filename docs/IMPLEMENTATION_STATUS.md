@@ -18,7 +18,7 @@
 
 ## Not yet implemented
 - Generated native Android/iOS projects, permission configuration and successful device builds.
-- Background GPS tracking, road-network map matching, robust GPS-drift handling and production-grade off-route detection.
+- Background GPS tracking and production-grade off-route detection.
 - Road-network map matching, robust GPS-drift handling, lane guidance, traffic and speed-limit data; maneuver prompts currently use geometric route progress and need real-road validation.
 - Offline map downloads, region package manager, offline routing graph activation and offline POI search.
 - Bundled/on-device llama.cpp runtime and model management; the current assistant requires a separately started LAN llama.cpp server.
