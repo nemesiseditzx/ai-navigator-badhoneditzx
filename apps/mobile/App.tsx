@@ -5,7 +5,8 @@ import Geolocation from '@react-native-community/geolocation';
 import {CONFIG} from './src/config';
 import {searchPlaces} from './src/services/places';
 import {calculateRoute} from './src/services/routing';
-import {navigationReaction, parseLocalCommand} from './src/services/assistant';
+import {navigationReaction, parseLocalCommand, askLocalAssistant} from './src/services/assistant';
+import type {AssistantChatMessage} from './src/services/assistant';
 import {evaluateRouteProgress} from './src/services/routeProgress';
 import {speakNavigation, stopSpeech, startSpeechRecognition, stopSpeechRecognition, setSpeechRecognitionHandlers, destroySpeechRecognition} from './src/services/speech';
 import type {Coordinate, Place, Personality, RouteSummary} from './src/types/navigation';
@@ -21,6 +22,7 @@ export default function App() {
   const [status, setStatus] = useState('Ready when you are');
   const [assistantInput, setAssistantInput] = useState('');
   const [listening, setListening] = useState(false);
+  const [conversation, setConversation] = useState<AssistantChatMessage[]>([]);
   const [activeInstruction, setActiveInstruction] = useState('Follow the highlighted route.');
   const nextManeuverIndex = useRef(1);
   const [mapError, setMapError] = useState(false);
@@ -124,7 +126,7 @@ export default function App() {
     return () => Geolocation.clearWatch(watchId);
   }, [route, destination, personality]);
 
-  function handleAssistantMessage(rawMessage: string) {
+  async function handleAssistantMessage(rawMessage: string) {
     const command = parseLocalCommand(rawMessage);
     if (command === 'repeat') {
       const instruction = activeInstruction || route?.instructions[0] || 'There is no active route to repeat yet.';
@@ -134,16 +136,23 @@ export default function App() {
       stopSpeech();
       setStatus('Voice guidance muted. Visual navigation remains active.');
     } else {
-      const response = 'I can repeat the current instruction or mute voice guidance. General conversation is not available in this build.';
-      setStatus(response);
-      speakNavigation(response, personality);
+      setStatus('Thinking with your local AI…');
+      try {
+        const response = await askLocalAssistant(rawMessage, personality, conversation, route, destination?.name);
+        setConversation(previous => [...previous, {role: 'user', content: rawMessage}, {role: 'assistant', content: response}].slice(-12));
+        setStatus(response);
+        speakNavigation(response, personality);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Local assistant is unavailable.';
+        setStatus(message);
+      }
     }
   }
 
   function sendAssistantMessage() {
     const message = assistantInput.trim();
     if (!message) return;
-    handleAssistantMessage(message);
+    void handleAssistantMessage(message);
     setAssistantInput('');
   }
 
@@ -171,7 +180,7 @@ export default function App() {
     setSpeechRecognitionHandlers(text => {
       setAssistantInput(text);
       setListening(false);
-      handleAssistantMessage(text);
+      void handleAssistantMessage(text);
     }, message => {
       setListening(false);
       setStatus('Voice input error: ' + message);
@@ -198,7 +207,7 @@ export default function App() {
       <View style={styles.searchCard}><Text style={styles.label}>WHERE TO?</Text><TextInput value={query} onChangeText={findPlaces} placeholder="Search a place or address" placeholderTextColor="#89938B" style={styles.input} returnKeyType="search"/>{busy && <ActivityIndicator color="#287BDE" style={{marginTop:8}}/>}{results.length > 0 && <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" nestedScrollEnabled>{results.map(item => <TouchableOpacity key={item.id} style={styles.resultRow} onPress={() => startRoute(item)}><Text style={styles.resultName}>{item.name}</Text><Text style={styles.resultLabel}>{item.label}</Text></TouchableOpacity>)}</ScrollView>}</View>
       {route && <View style={styles.routeCard}><Text style={styles.routeTitle}>{destination?.name}</Text><Text style={styles.routeMeta}>{(route.distanceMeters / 1000).toFixed(1)} km · {Math.round(route.durationSeconds / 60)} min estimated</Text><Text style={styles.instruction}>{activeInstruction}</Text></View>}
       <View style={styles.assistantCard}><View style={styles.orb}><Text style={styles.orbText}>AI</Text></View><View style={{flex:1}}><Text style={styles.assistantTitle}>Your driving companion</Text><Text style={styles.assistantStatus}>{status}</Text><Text style={styles.assistantHint}>{navigationReaction('rerouted', personality)}</Text></View></View>
-      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Say or type: repeat / mute" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
+      <View style={styles.chatRow}><TextInput value={assistantInput} onChangeText={setAssistantInput} placeholder="Talk to your local AI assistant" placeholderTextColor="#89938B" style={styles.chatInput} onSubmitEditing={sendAssistantMessage} returnKeyType="send"/><TouchableOpacity style={styles.chatSend} onPress={sendAssistantMessage}><Text style={styles.chatSendText}>Send</Text></TouchableOpacity><TouchableOpacity style={[styles.micButton, listening && styles.micButtonActive]} onPress={toggleListening}><Text style={styles.chatSendText}>{listening ? "Stop" : "Mic"}</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personalityRow}>{personalityNames.map(item => <TouchableOpacity key={item} onPress={() => setPersonality(item)} style={[styles.personality, personality === item && styles.personalityActive]}><Text style={[styles.personalityText, personality === item && styles.personalityTextActive]}>{item}</Text></TouchableOpacity>)}</ScrollView>
       <Text style={styles.footer}>Foreground GPS rerouting, maneuver prompts and system speech are enabled. Background tracking and offline AI/voice models remain future work.</Text>
     </SafeAreaView>
