@@ -14,7 +14,7 @@ This source does not include generated `android/` and `ios/` native project fold
 
 Add Android `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` permissions to `AndroidManifest.xml`. Add `NSLocationWhenInUseUsageDescription` to iOS `Info.plist`. Configure cleartext HTTP only for local development; production self-hosted endpoints should use HTTPS.
 
-Run `npm install`, then `npm run typecheck`, `npm run android`, or `npm run ios` after native project generation. Set service URLs in `src/config.ts`. Android emulator uses `10.0.2.2`; physical devices need the host computer's LAN IP.
+Run `npm install`, then `npm run typecheck` and `npm test` for TypeScript checking and route-progress regression tests. Use `npm run android` or `npm run ios` after native project generation. Set service URLs in `src/config.ts`. Android emulator uses `10.0.2.2`; physical devices need the host computer's LAN IP.
 
 ## Safety limitations
 The route-progress estimator is geometric, not road-network map matching. GPS drift can create false positives. Background navigation, lane guidance, traffic and offline routing are not implemented. Do not use this scaffold as a sole navigation aid on real roads.
