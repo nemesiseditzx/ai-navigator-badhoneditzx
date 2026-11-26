@@ -1,0 +1,14 @@
+<!-- Merge these entries into android/app/src/main/AndroidManifest.xml inside <manifest>. -->
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+<!-- Android 11+ speech-recognition service visibility. -->
+<queries>
+  <intent>
+    <action android:name="android.speech.RecognitionService" />
+  </intent>
+</queries>
+
+<!-- For local HTTP development only, add android:usesCleartextTraffic="true"
+     to the existing <application> element. Do not ship this in production. -->
